@@ -7,10 +7,24 @@ import team.sopo.common.SupportCarrier
 import team.sopo.common.parcel.*
 import team.sopo.infrastructure.carrierselector.cvsnet.GsResponse
 import team.sopo.infrastructure.carrierselector.hdexp.HdResponse
+import team.sopo.infrastructure.carrierselector.kdexp.KdResponse
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
 class SopoTrackerApplicationTests {
+
+    @Test
+    fun 경동() {
+        val document = Jsoup.connect("https://kdexp.com/newDeliverySearch.kd")
+            .ignoreContentType(true)
+            .data("barcode", "3207310921995")
+            .get()
+
+        val body = document.body().text()
+        val hdRes = Gson().fromJson(body, KdResponse::class.java)
+        val parcel = hdRes.toParcel()
+        println(parcel)
+    }
 
     @Test
     fun 합동() {
