@@ -1,15 +1,77 @@
 package team.sopo.tracker
 
+import com.google.gson.Gson
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
 import team.sopo.common.SupportCarrier
 import team.sopo.common.parcel.*
+import team.sopo.infrastructure.carrierselector.cvsnet.GsResponse
+import team.sopo.infrastructure.carrierselector.hdexp.HdResponse
+import java.util.regex.Pattern
 import kotlin.streams.toList
 
 class SopoTrackerApplicationTests {
 
     @Test
-    fun cu(){
+    fun 합동 () {
+        val document = Jsoup.connect("https://hdexp.co.kr/deliverySearch2.hd")
+            .ignoreContentType(true)
+            .data("barcode", "3207220225160")
+            .get()
+        val body = document.body().text()
+        val hdRes = Gson().fromJson(body, HdResponse::class.java)
+        val parcel = hdRes.toParcel()
+        println(parcel)
+    }
+
+    @Test
+    fun 대신() {
+        val document = Jsoup.connect("https://www.ds3211.co.kr/freight/internalFreightSearch.ht")
+            .ignoreContentType(true)
+            .data("billno", "8054101100865")
+            .get()
+        val elements = document.select("table > tbody")
+        val summary = elements[0].select("tr > td")
+        var parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.daesin"))
+
+        parcel.from = From(summary[0].data(), null, summary[1].data())
+        parcel.to = To(summary[2].data())
+        parcel.item = summary[4].data()
+
+        val details = elements[1].select("tr")
+        val progresses = details.stream()
+            .filter { it != details.first() }
+            .map { detail ->
+                val data = detail.select("td")
+                Progresses(
+                    time = data[3].data(),
+                    location = Location(data[0].data()),
+                    status = Status("",""),
+                    description = data[1].data()
+                )
+            }.toList()
+
+        parcel.progresses.addAll(progresses)
+    }
+
+    @Test
+    fun gs() {
+        val document = Jsoup.connect("https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=210083503114")
+            .ignoreContentType(true)
+            .get()
+
+        val select = document.select("script")
+        println(select)
+        val pattern = Pattern.compile(".*var trackingInfo = ([^;]*);")
+        val matcher = pattern.matcher(select[1].data())
+        if (matcher.find()) {
+            val response = matcher.group(1)
+            val gsRes = Gson().fromJson(response, GsResponse::class.java)
+        }
+    }
+
+    @Test
+    fun cu() {
         val document = Jsoup.connect("https://www.cupost.co.kr/postbox/delivery/localResult.cupost")
             .ignoreContentType(true)
             .data("invoice_no", "22032527193")
@@ -80,7 +142,7 @@ class SopoTrackerApplicationTests {
         val parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.hanjin"))
         val elements = summary.select("td")
         println(elements)
-//        parcel.item =
+
         parcel.item = elements[0].text()
         parcel.from = From(elements[1].text())
         parcel.to = To(elements[2].text())
