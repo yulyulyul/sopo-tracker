@@ -12,7 +12,7 @@ import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 
 @Component
-class EPostSelector : CarrierSelector {
+class EpostSelector : CarrierSelector {
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.EPOST.code)

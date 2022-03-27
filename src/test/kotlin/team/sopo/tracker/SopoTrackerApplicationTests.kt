@@ -9,6 +9,32 @@ import kotlin.streams.toList
 class SopoTrackerApplicationTests {
 
     @Test
+    fun cu(){
+        val document = Jsoup.connect("https://www.cupost.co.kr/postbox/delivery/localResult.cupost")
+            .ignoreContentType(true)
+            .data("invoice_no", "22032527193")
+            .get()
+
+        val elements = document.select("table[class='tableType1'] > tbody")
+        val summary = elements[0].select("td")
+        val progress = elements[2].select("tr")
+        val parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.cupost"))
+        val targetStore = summary[7].text().trim()
+
+        parcel.from = From(summary[4].text(), "${summary[2].text()} ${summary[3].text()}")
+        parcel.to = To(summary[5].text())
+        parcel.item = summary[1].text()
+
+        val progresses = progress.stream().map {
+            val detail = it.select("td")
+            Progresses(detail[0].text(), Location(detail[1].text()), Status("", ""), detail[2].text())
+        }.toList()
+        parcel.progresses.addAll(progresses)
+
+        println(parcel)
+    }
+
+    @Test
     fun 천일() {
         val document = Jsoup.connect("http://www.chunil.co.kr/HTrace/HTrace.jsp")
             .ignoreContentType(true)
