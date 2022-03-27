@@ -5,15 +5,14 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
-import team.sopo.common.extension.removeSpecialCharacter
-import team.sopo.common.extension.sortProgress
 import team.sopo.common.parcel.*
+import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import kotlin.streams.toList
 
 @Component
-class DaesinSelector : CarrierSelector {
+class DaesinSelector : CarrierSelector() {
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.DAESIN.code)
@@ -26,6 +25,15 @@ class DaesinSelector : CarrierSelector {
             .get()
 
         return toParcel(document, command.carrierCode)
+    }
+
+    override fun calculateStatus(criteria: String): Status {
+        val processed = criteria.trim().replace(" ", "")
+        return if (processed.contains("배송완료")) {
+            Status.getDelivered()
+        } else {
+            Status.getInTransit()
+        }
     }
 
     private fun toParcel(document: Document, carrierCode: String): Parcel {
@@ -50,31 +58,9 @@ class DaesinSelector : CarrierSelector {
                 )
             }.toList()
         parcel.progresses.addAll(progresses)
-        parcel = sorting(parcel)
-        parcel.state = calculateState(parcel)
+        parcel = ParcelUtil.sorting(parcel)
+        parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
     }
-
-    private fun sorting(parcel: Parcel): Parcel {
-        return parcel.apply {
-            parcel.removeSpecialCharacter()
-            parcel.sortProgress()
-        }
-    }
-
-    private fun calculateState(parcel: Parcel): State {
-        val status = parcel.progresses.lastOrNull()?.status ?: Status.getInformationReceived()
-        return State(status.id, status.text)
-    }
-
-    private fun calculateStatus(criteria: String): Status {
-        val processed = criteria.trim().replace(" ", "")
-        return if (processed.contains("배송완료")) {
-            Status.getDelivered()
-        } else {
-            Status.getInTransit()
-        }
-    }
-
 }

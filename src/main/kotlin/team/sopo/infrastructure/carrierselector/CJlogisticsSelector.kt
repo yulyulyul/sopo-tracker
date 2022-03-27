@@ -6,15 +6,15 @@ import org.jsoup.HttpStatusException
 import org.jsoup.Jsoup
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
-import team.sopo.common.extension.removeSpecialCharacter
-import team.sopo.common.extension.sortProgress
 import team.sopo.common.parcel.*
+import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import team.sopo.infrastructure.carrierselector.cjlogistics.CjResponse
+import kotlin.streams.toList
 
 @Component
-class CJlogisticsSelector : CarrierSelector {
+class CJlogisticsSelector : CarrierSelector() {
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.CJ_LOGISTICS.code)
@@ -43,9 +43,44 @@ class CJlogisticsSelector : CarrierSelector {
 
         val cjResponse = Gson().fromJson(cjRes2, CjResponse::class.java)
 
-        return cjResponse.toParcel(command.carrierCode).apply {
-            this.removeSpecialCharacter()
-            this.sortProgress()
+        return toParcel(cjResponse)
+    }
+
+    override fun calculateStatus(criteria: String): Status {
+        return when (criteria) {
+            "" -> Status.getInformationReceived()
+            "11" -> Status.getAtPickUp()
+            "41" -> Status.getInTransit()
+            "42" -> Status.getInTransit()
+            "44" -> Status.getInTransit()
+            "82" -> Status.getOutForDelivery()
+            "91" -> Status.getDelivered()
+            else -> throw IllegalStateException("존재하지 않는 배송상태 입니다.(CJ)")
         }
     }
+
+    fun toParcel(cjRes: CjResponse): Parcel {
+        var parcel = Parcel(carrier = SupportCarrier.toCarrier(SupportCarrier.CJ_LOGISTICS.code))
+        val parcelResult = cjRes.parcelResultMap.resultList.firstOrNull()
+            ?: throw IllegalStateException("Cj Response에서 ResultList를 추출할 수 없습니다.")
+
+        parcel.from = From(name = parcelResult.sendrNm, time = null, tel = null)
+        parcel.to = To(name = parcelResult.rcvrNm, null)
+        parcel.item = parcelResult.itemNm
+
+        val progresses = cjRes.parcelDetailResultMap.resultList.stream().map { detail ->
+            Progresses(
+                time = detail.dTime,
+                location = Location(detail.regBranNm),
+                status = calculateStatus(detail.crgSt),
+                description = detail.crgNm
+            )
+        }.toList()
+        parcel.progresses.addAll(progresses)
+        parcel = ParcelUtil.sorting(parcel)
+        parcel.state = ParcelUtil.determineState(parcel)
+
+        return parcel
+    }
+
 }

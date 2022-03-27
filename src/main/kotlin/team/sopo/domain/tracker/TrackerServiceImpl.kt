@@ -5,7 +5,7 @@ import team.sopo.common.exception.InsufficientConditionException
 import team.sopo.common.parcel.Parcel
 
 @Service
-class TrackerServiceImpl(private val carrierSelectors: List<CarrierSelector>): TrackerService {
+class TrackerServiceImpl(private val carrierSelectors: List<CarrierSelector>) : TrackerService {
 
     override fun tracking(command: TrackerCommand.Tracking): Parcel {
         val carrierSelector = routingCarrierSelector(command)

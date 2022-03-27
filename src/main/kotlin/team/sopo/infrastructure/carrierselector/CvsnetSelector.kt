@@ -6,9 +6,8 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
-import team.sopo.common.extension.removeSpecialCharacter
-import team.sopo.common.extension.sortProgress
 import team.sopo.common.parcel.*
+import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import team.sopo.infrastructure.carrierselector.cvsnet.GsResponse
@@ -16,9 +15,9 @@ import java.util.regex.Pattern
 import kotlin.streams.toList
 
 @Component
-class CvsnetSelector : CarrierSelector {
+class CvsnetSelector : CarrierSelector() {
 
-    private enum class CarrierType{
+    private enum class CarrierType {
         GS_NETWORKS, DAEHAN_EXPRESS
     }
 
@@ -32,6 +31,10 @@ class CvsnetSelector : CarrierSelector {
             .get()
 
         return toParcel(document, command.carrierCode)
+    }
+
+    override fun calculateStatus(criteria: String): Status {
+        return Status("", "")
     }
 
     private fun toParcel(document: Document, carrierCode: String): Parcel {
@@ -57,23 +60,10 @@ class CvsnetSelector : CarrierSelector {
             )
         }.toList()
         parcel.progresses.addAll(progresses)
-
-        parcel = sorting(parcel)
-        parcel.state = calculateState(parcel)
+        parcel = ParcelUtil.sorting(parcel)
+        parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
-    }
-
-    private fun sorting(parcel: Parcel): Parcel {
-        return parcel.apply {
-            parcel.removeSpecialCharacter()
-            parcel.sortProgress()
-        }
-    }
-
-    private fun calculateState(parcel: Parcel): State {
-        val status = parcel.progresses.lastOrNull()?.status ?: Status.getInformationReceived()
-        return State(status.id, status.text)
     }
 
     private fun calculateStatus(criteria: String, carrierType: String): Status {
@@ -82,14 +72,14 @@ class CvsnetSelector : CarrierSelector {
         }
         val processed = criteria.trim().replace(" ", "")
 
-        return when(CarrierType.valueOf(carrierType)){
+        return when (CarrierType.valueOf(carrierType)) {
             CarrierType.DAEHAN_EXPRESS -> daehanExpress(processed)
             CarrierType.GS_NETWORKS -> gsNetworks(processed)
         }
     }
 
     private fun gsNetworks(criteria: String): Status {
-        return when(criteria){
+        return when (criteria) {
             "C01" -> Status.getInformationReceived()
             "C015" -> Status.getAtPickUp()
             "C10" -> Status.getDelivered()
