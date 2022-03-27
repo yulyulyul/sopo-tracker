@@ -13,7 +13,7 @@ import kotlin.streams.toList
 class SopoTrackerApplicationTests {
 
     @Test
-    fun 합동 () {
+    fun 합동() {
         val document = Jsoup.connect("https://hdexp.co.kr/deliverySearch2.hd")
             .ignoreContentType(true)
             .data("barcode", "3207220225160")
@@ -46,7 +46,7 @@ class SopoTrackerApplicationTests {
                 Progresses(
                     time = data[3].data(),
                     location = Location(data[0].data()),
-                    status = Status("",""),
+                    status = Status("", ""),
                     description = data[1].data()
                 )
             }.toList()
