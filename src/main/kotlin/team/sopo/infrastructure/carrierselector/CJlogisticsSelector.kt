@@ -6,6 +6,8 @@ import org.jsoup.HttpStatusException
 import org.jsoup.Jsoup
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
+import team.sopo.common.exception.ParcelNotFoundException
+import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
@@ -21,6 +23,8 @@ class CJlogisticsSelector : CarrierSelector() {
     }
 
     override fun tracking(command: TrackerCommand.Tracking): Parcel {
+        verifyWaybillNum(command.waybillNum)
+
         val cjRes1 = try {
             Jsoup.connect("https://www.cjlogistics.com/ko/tool/parcel/tracking").execute()
         } catch (e: HttpStatusException) {
@@ -42,6 +46,7 @@ class CJlogisticsSelector : CarrierSelector() {
             .text()
 
         val cjResponse = Gson().fromJson(cjRes2, CjResponse::class.java)
+        checkConvertable(cjResponse)
 
         return toParcel(cjResponse)
     }
@@ -82,5 +87,19 @@ class CJlogisticsSelector : CarrierSelector() {
 
         return parcel
     }
+
+    private fun verifyWaybillNum(waybillNum: String) {
+        val isValidNum = waybillNum.length == 10 || waybillNum.length == 12
+        if (!isValidNum) {
+            throw ValidationException("송장번호의 유효성을 확인해주세요. - ($waybillNum)")
+        }
+    }
+
+    private fun checkConvertable(response: CjResponse) {
+        if (response.parcelResultMap.resultList.isEmpty()) {
+            throw ParcelNotFoundException("해당 송장번호에 부합하는 택배를 찾을 수 없습니다.")
+        }
+    }
+
 
 }
