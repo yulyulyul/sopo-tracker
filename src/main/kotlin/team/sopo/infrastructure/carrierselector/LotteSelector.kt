@@ -6,6 +6,7 @@ import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
 import team.sopo.common.exception.ParcelNotFoundException
+import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
@@ -19,6 +20,8 @@ class LotteSelector : CarrierSelector() {
     }
 
     override fun tracking(command: TrackerCommand.Tracking): Parcel {
+        verifyWaybillNum(command.waybillNum)
+
         val document = Jsoup.connect("https://www.lotteglogis.com/home/reservation/tracking/linkView")
             .ignoreContentType(true)
             .data("InvNo", command.waybillNum)
@@ -69,9 +72,16 @@ class LotteSelector : CarrierSelector() {
         return parcel
     }
 
+    private fun verifyWaybillNum(waybillNum: String) {
+        val isValidNum = waybillNum.length in 9..12
+        if (!isValidNum) {
+            throw ValidationException("송장번호의 유효성을 확인해주세요. - ($waybillNum)")
+        }
+    }
+
     private fun checkConvertable(document: Document) {
         /**
-         *  element.size => 2인 경우, 상품준비중임.(not_registered가 적합할듯..)
+         *  element.size => 2인 경우, 아직 등록된 택배가 없는 경우임.
          *
          *  2 이상인 경우, 일반적인 배송과정의 시작으로 판단함.
          *  '시스템 점검'인 경우, 해당 size가 어떻게 될지에 따라, convert가 가능할지 여부를 판단해야할듯.
