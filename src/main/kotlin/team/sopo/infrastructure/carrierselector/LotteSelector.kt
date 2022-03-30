@@ -2,9 +2,10 @@ package team.sopo.infrastructure.carrierselector
 
 import org.apache.commons.lang3.StringUtils
 import org.jsoup.Jsoup
-import org.jsoup.select.Elements
+import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
+import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
@@ -22,14 +23,15 @@ class LotteSelector : CarrierSelector() {
             .ignoreContentType(true)
             .data("InvNo", command.waybillNum)
             .post()
-        val lotteProgress = document.select("tbody > tr")
 
-        return toParcel(lotteProgress, command.carrierCode)
+        checkConvertable(document)
+
+        return toParcel(document, command.carrierCode)
     }
 
     override fun calculateStatus(criteria: String): Status {
         if (StringUtils.isBlank(criteria)) {
-            throw IllegalStateException("Status를 처리할 수 없습니다.(Lotte)")
+            throw IllegalStateException("Status를 처리할 수 없습니다.($criteria)")
         }
         val processedCriteria = criteria.trim().replace(" ", "")
         return if (processedCriteria.contains("인수") || processedCriteria.contains("상품접수")) {
@@ -43,7 +45,8 @@ class LotteSelector : CarrierSelector() {
         }
     }
 
-    private fun toParcel(element: Elements, carrierCode: String): Parcel {
+    private fun toParcel(document: Document, carrierCode: String): Parcel {
+        val element = document.select("tbody > tr")
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
         for (i in 0 until element.size) {
             val elements = element[i].select("tr > td")
@@ -64,5 +67,20 @@ class LotteSelector : CarrierSelector() {
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
         return parcel
+    }
+
+    private fun checkConvertable(document: Document) {
+        /**
+         *  element.size => 2인 경우, 상품준비중임.(not_registered가 적합할듯..)
+         *
+         *  2 이상인 경우, 일반적인 배송과정의 시작으로 판단함.
+         *  '시스템 점검'인 경우, 해당 size가 어떻게 될지에 따라, convert가 가능할지 여부를 판단해야할듯.
+         */
+
+        val element = document.select("tbody > tr")
+
+        if (element.size == 2) {
+            throw ParcelNotFoundException("해당 송장번호에 부합하는 택배를 찾을 수 없습니다.")
+        }
     }
 }
