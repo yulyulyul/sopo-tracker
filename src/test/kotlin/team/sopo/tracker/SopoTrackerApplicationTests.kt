@@ -179,30 +179,17 @@ class SopoTrackerApplicationTests {
         val document =
             Jsoup.connect("https://www.ilogen.com/web/personal/trace/96633431683").ignoreContentType(true).get()
 
-        val atPickUpProgress = document.select("table[class='horizon pdInfo'] tbody > tr")
+        val summary = document.select("table[class='horizon pdInfo'] tbody > tr")
         val progress = document.select("table[class='data tkInfo'] tbody > tr")
-
         val parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.logen"))
         val atPickUp = Progresses(null, null, Status.getAtPickUp(), null)
 
-        for (i in 0 until atPickUpProgress.size) {
-            val elements = atPickUpProgress[i].select("td")
-            when (i) {
-                0 -> {
-                    parcel.item = elements[3].text()
-                }
-                1 -> {
-                    atPickUp.time = elements[1].text()
-                }
-                2 -> {
-                    atPickUp.location = Location(elements[1].text())
-                }
-                3 -> {
-                    parcel.from = From(elements[1].text(), null, null)
-                    parcel.to = To(elements[3].text(), null)
-                }
-            }
-        }
+        parcel.item = summary[0].select("td")[3].text()
+        parcel.from = From(summary[3].select("td")[1].text(), null, null)
+        parcel.to = To(summary[3].select("td")[3].text(), null)
+
+        atPickUp.time = summary[1].select("td")[1].text()
+        atPickUp.location = Location(summary[2].select("td")[1].text())
         parcel.progresses.add(atPickUp)
 
         for (i in 0 until progress.size) {
