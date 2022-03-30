@@ -22,8 +22,6 @@ class SopoTrackerApplicationTests {
 
         val body = document.body().text()
         val hdRes = Gson().fromJson(body, KdResponse::class.java)
-        val parcel = hdRes.toParcel()
-        println(parcel)
     }
 
     @Test
@@ -34,8 +32,6 @@ class SopoTrackerApplicationTests {
             .get()
         val body = document.body().text()
         val hdRes = Gson().fromJson(body, HdResponse::class.java)
-        val parcel = hdRes.toParcel()
-        println(parcel)
     }
 
     @Test
@@ -257,7 +253,35 @@ class SopoTrackerApplicationTests {
     fun 롯데() {
         val document =
             Jsoup.connect("https://www.lotteglogis.com/home/reservation/tracking/linkView").ignoreContentType(true)
-                .data("InvNo", "241336723821").post()
+                .data("InvNo", "238595957611").post()
+
+        val lotteProgress = document.select("tbody > tr")
+        val trackingInfo = Parcel(carrier = Carrier("kr.lotte", "롯데택배", "+8215882121"))
+        for (i in 0 until lotteProgress.size) {
+            val elements = lotteProgress[i].select("tr > td")
+            if (i == 0) {
+                trackingInfo.from = From(elements[1].text(), null, null)
+                trackingInfo.to = To(elements[2].text(), null)
+                trackingInfo.state = State("delivered", elements[3].text())
+            } else {
+                trackingInfo.progresses.add(
+                    Progresses(
+                        location = Location(elements[2].text()),
+                        status = Status(elements[0].text(), elements[0].text()),
+                        time = elements[1].text(),
+                        description = elements[3].text()
+                    )
+                )
+            }
+        }
+        println(trackingInfo)
+    }
+
+    @Test
+    fun 롯데_없는_번호() {
+        val document =
+            Jsoup.connect("https://www.lotteglogis.com/home/reservation/tracking/linkView").ignoreContentType(true)
+                .data("InvNo", "").post()
 
         val lotteProgress = document.select("tbody > tr")
         val trackingInfo = Parcel(carrier = Carrier("kr.lotte", "롯데택배", "+8215882121"))
