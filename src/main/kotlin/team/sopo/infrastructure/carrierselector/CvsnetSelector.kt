@@ -6,6 +6,8 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
+import team.sopo.common.exception.ParcelNotFoundException
+import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
 import team.sopo.domain.tracker.CarrierSelector
@@ -26,9 +28,13 @@ class CvsnetSelector : CarrierSelector() {
     }
 
     override fun tracking(command: TrackerCommand.Tracking): Parcel {
+        verifyWaybillNum(command.waybillNum)
+
         val document = Jsoup.connect("https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=${command.waybillNum}")
             .ignoreContentType(true)
             .get()
+
+        checkConvertable(document)
 
         return toParcel(document, command.carrierCode)
     }
@@ -39,12 +45,9 @@ class CvsnetSelector : CarrierSelector() {
 
     private fun toParcel(document: Document, carrierCode: String): Parcel {
         val summary = document.select("script")
+        var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
         val pattern = Pattern.compile(".*var trackingInfo = ([^;]*);")
         val matcher = pattern.matcher(summary[1].data())
-        if (!matcher.find()) {
-            throw IllegalStateException("$carrierCode 파싱 로직에 문제가 있습니다.")
-        }
-        var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
         val gsRes = Gson().fromJson(matcher.group(1), GsResponse::class.java)
 
         parcel.from = From(gsRes.sender.name, null, gsRes.sender.tel)
@@ -98,6 +101,29 @@ class CvsnetSelector : CarrierSelector() {
             "82" -> Status(State.getOutForDelivery().id, State.getOutForDelivery().text)
             "91" -> Status(State.getDelivered().id, State.getDelivered().text)
             else -> throw IllegalStateException("존재하지 않는 배송상태 입니다.(GS)")
+        }
+    }
+
+    private fun verifyWaybillNum(waybillNum: String) {
+        val pattern = Pattern.compile("^[0-9]*?")
+        val isValidNum = waybillNum.length == 12 && pattern.matcher(waybillNum).matches()
+
+        if (!isValidNum) {
+            throw ValidationException("송장번호의 유효성을 확인해주세요. - ($waybillNum)")
+        }
+    }
+
+    private fun checkConvertable(document: Document) {
+        val summary = document.select("script")
+        val pattern = Pattern.compile(".*var trackingInfo = ([^;]*);")
+        val matcher = pattern.matcher(summary[1].data())
+        if (!matcher.find()) {
+            throw IllegalStateException("파싱 로직에 문제가 있습니다.")
+        }
+        val gsRes = Gson().fromJson(matcher.group(1), GsResponse::class.java)
+
+        if (gsRes.code != 200) {
+            throw ParcelNotFoundException("해당 송장번호에 부합하는 택배를 찾을 수 없습니다.")
         }
     }
 
