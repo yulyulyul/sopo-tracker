@@ -17,3 +17,7 @@ Content-Type: application/json
 ### CJ
 GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=559197191721&carrier=kr.cjlogistics
 Content-Type: application/json
+
+### Chunlips
+GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=12189760724&carrier=kr.chunilps
+Content-Type: application/json
