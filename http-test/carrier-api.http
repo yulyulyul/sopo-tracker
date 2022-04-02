@@ -13,3 +13,7 @@ Content-Type: application/json
 ### Cu
 GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=22032527193&carrier=kr.cupost
 Content-Type: application/json
+
+### CJ
+GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=559197191721&carrier=kr.cjlogistics
+Content-Type: application/json

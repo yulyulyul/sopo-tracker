@@ -10,13 +10,20 @@ import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import team.sopo.infrastructure.carrierselector.cjlogistics.CjResponse
+import team.sopo.infrastructure.carrierselector.cjlogistics.ParcelDetailResult
+import java.time.format.DateTimeFormatter
 import kotlin.streams.toList
 
 @Component
 class CJlogisticsSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.CJ_LOGISTICS.code)
@@ -55,12 +62,9 @@ class CJlogisticsSelector : CarrierSelector() {
         return when (criteria) {
             "" -> Status.getInformationReceived()
             "11" -> Status.getAtPickUp()
-            "41" -> Status.getInTransit()
-            "42" -> Status.getInTransit()
-            "44" -> Status.getInTransit()
             "82" -> Status.getOutForDelivery()
             "91" -> Status.getDelivered()
-            else -> throw IllegalStateException("존재하지 않는 배송상태 입니다.(CJ)")
+            else -> Status.getInTransit()
         }
     }
 
@@ -72,20 +76,28 @@ class CJlogisticsSelector : CarrierSelector() {
         parcel.from = From(name = parcelResult.sendrNm, time = null, tel = null)
         parcel.to = To(name = parcelResult.rcvrNm, null)
         parcel.item = parcelResult.itemNm
-
-        val progresses = cjRes.parcelDetailResultMap.resultList.stream().map { detail ->
-            Progresses(
-                time = detail.dTime,
-                location = Location(detail.regBranNm),
-                status = calculateStatus(detail.crgSt),
-                description = detail.crgNm
-            )
-        }.toList()
-        parcel.progresses.addAll(progresses)
+        parcel.progresses.addAll(toProgresses(cjRes))
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
+    }
+
+    private fun toProgresses(cjRes: CjResponse): List<Progresses> {
+        return cjRes.parcelDetailResultMap.resultList.stream()
+            .filter { checkTimeFormat(it) }
+            .map { detail ->
+                Progresses(
+                    time = TimeUtil.convert(detail.dTime, formatter),
+                    location = Location(detail.regBranNm),
+                    status = calculateStatus(detail.crgSt),
+                    description = detail.crgNm
+                )
+            }.toList()
+    }
+
+    private fun checkTimeFormat(detail: ParcelDetailResult): Boolean {
+        return TimeUtil.checkTimeFormat(detail.dTime, formatter)
     }
 
     private fun verifyWaybillNum(waybillNum: String) {
@@ -100,6 +112,4 @@ class CJlogisticsSelector : CarrierSelector() {
             throw ParcelNotFoundException("해당 송장번호에 부합하는 택배를 찾을 수 없습니다.")
         }
     }
-
-
 }
