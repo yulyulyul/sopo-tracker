@@ -1,0 +1,11 @@
+### GS - GS_NETWORKS
+GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=210085936196&carrier=kr.cvsnet
+Content-Type: application/json
+
+### GS - CJ
+GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=363637354055&carrier=kr.cvsnet
+Content-Type: application/json
+
+### Epost
+GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=6077376185961&carrier=kr.epost
+Content-Type: application/json

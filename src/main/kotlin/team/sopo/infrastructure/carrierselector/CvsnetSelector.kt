@@ -10,14 +10,21 @@ import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import team.sopo.infrastructure.carrierselector.cvsnet.GsResponse
+import team.sopo.infrastructure.carrierselector.cvsnet.TrackingDetail
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
 @Component
 class CvsnetSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+    }
 
     private enum class CarrierType {
         GS_NETWORKS, DAEHAN_EXPRESS
@@ -46,23 +53,15 @@ class CvsnetSelector : CarrierSelector() {
     private fun toParcel(document: Document, carrierCode: String): Parcel {
         val summary = document.select("script")
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
-        val pattern = Pattern.compile(".*var trackingInfo = ([^;]*);")
-        val matcher = pattern.matcher(summary[1].data())
-        val gsRes = Gson().fromJson(matcher.group(1), GsResponse::class.java)
+        val regex = """.*var trackingInfo = ([^;]*);""".toRegex()
+        val data = summary[1].data()
+        val group = regex.find(data)!!.groups[1]!!.value
+        val gsRes = Gson().fromJson(group, GsResponse::class.java)
 
         parcel.from = From(gsRes.sender.name, null, gsRes.sender.tel)
         parcel.to = To(gsRes.receiver.name, null)
         parcel.item = gsRes.goodsName
-
-        val progresses = gsRes.trackingDetails.stream().map { detail ->
-            Progresses(
-                time = detail.transTime,
-                location = Location(detail.transWhere),
-                status = calculateStatus(detail.transCode, gsRes.carrierType),
-                description = detail.transKind
-            )
-        }.toList()
-        parcel.progresses.addAll(progresses)
+        parcel.progresses.addAll(toProgresses(gsRes))
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
@@ -95,13 +94,27 @@ class CvsnetSelector : CarrierSelector() {
         return when (criteria) {
             null -> Status(Status.getInformationReceived().id, Status.getInformationReceived().text)
             "11" -> Status(State.getAtPickUp().id, State.getAtPickUp().text)
-            "41" -> Status(State.getInTransit().id, State.getInTransit().text)
-            "42" -> Status(State.getInTransit().id, State.getInTransit().text)
-            "44" -> Status(State.getInTransit().id, State.getInTransit().text)
             "82" -> Status(State.getOutForDelivery().id, State.getOutForDelivery().text)
             "91" -> Status(State.getDelivered().id, State.getDelivered().text)
-            else -> throw IllegalStateException("존재하지 않는 배송상태 입니다.(GS)")
+            else -> Status(State.getInTransit().id, State.getInTransit().text)
         }
+    }
+
+    private fun toProgresses(gsRes: GsResponse): List<Progresses> {
+        return gsRes.trackingDetails.stream()
+            .filter { checkTimeFormat(it) }
+            .map { detail ->
+                Progresses(
+                    time = TimeUtil.convert(detail.transTime, formatter),
+                    location = Location(detail.transWhere),
+                    status = calculateStatus(detail.transCode, gsRes.carrierType),
+                    description = detail.transKind
+                )
+            }.toList()
+    }
+
+    private fun checkTimeFormat(detail: TrackingDetail): Boolean {
+        return TimeUtil.checkTimeFormat(detail.transTime, formatter)
     }
 
     private fun verifyWaybillNum(waybillNum: String) {
@@ -115,12 +128,11 @@ class CvsnetSelector : CarrierSelector() {
 
     private fun checkConvertable(document: Document) {
         val summary = document.select("script")
-        val pattern = Pattern.compile(".*var trackingInfo = ([^;]*);")
-        val matcher = pattern.matcher(summary[1].data())
-        if (!matcher.find()) {
-            throw IllegalStateException("파싱 로직에 문제가 있습니다.")
-        }
-        val gsRes = Gson().fromJson(matcher.group(1), GsResponse::class.java)
+        val regex = """.*var trackingInfo = ([^;]*);""".toRegex()
+        val trackingInfo = summary[1].data()
+        val matchResult =
+            regex.find(trackingInfo)?.groups?.get(1)?.value ?: throw IllegalStateException("파싱 로직에 문제가 있습니다.")
+        val gsRes = Gson().fromJson(matchResult, GsResponse::class.java)
 
         if (gsRes.code != 200) {
             throw ParcelNotFoundException("해당 송장번호에 부합하는 택배를 찾을 수 없습니다.")
