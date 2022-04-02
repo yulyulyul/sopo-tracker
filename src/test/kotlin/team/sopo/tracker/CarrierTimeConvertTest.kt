@@ -22,4 +22,12 @@ class CarrierTimeConvertTest {
         Assertions.assertTrue(TimeUtil.checkTimeFormat(time, formatter))
     }
 
+    @Test
+    fun epostTime(){
+        val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")
+        val time = "2022.02.23 00:00"
+
+        Assertions.assertTrue(TimeUtil.checkTimeFormat(time, formatter))
+    }
+
 }

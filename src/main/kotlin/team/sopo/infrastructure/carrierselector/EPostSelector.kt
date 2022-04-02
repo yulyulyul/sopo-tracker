@@ -3,18 +3,27 @@ package team.sopo.infrastructure.carrierselector
 import org.apache.commons.lang3.StringUtils
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
 import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
+import kotlin.streams.toList
 
 @Component
 class EpostSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.EPOST.code)
@@ -51,28 +60,51 @@ class EpostSelector : CarrierSelector() {
 
     private fun toParcel(document: Document, carrierCode: String): Parcel {
 
-        val element = document.select("tbody > tr")
+        val elements = document.select("tbody > tr")
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
-        for (i in 0 until element.size) {
-            val elements = element[i].select("tr > td")
-            if (i == 0) {
-                parcel.from = From(elements[0].childNode(0).toString(), elements[0].childNode(2).toString(), null)
-                parcel.to = To(elements[2].childNode(0).toString(), elements[2].childNode(2).toString())
-            } else {
-                parcel.progresses.add(
-                    Progresses(
-                        location = Location(elements[2].text()),
-                        status = calculateStatus(elements[3].text()),
-                        time = "${elements[0].text()}${elements[1].text()}",
-                        description = elements[3].text()
-                    )
-                )
-            }
-        }
+        val summary = elements[0].select("tr > td")
+
+        parcel.from = toFrom(summary)
+        parcel.to = toTo(summary)
+        parcel.progresses.addAll(toProgresses(elements))
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
+    }
+
+    private fun toFrom(elements: Elements): From {
+        val fromTime = elements[0].childNode(2).toString()
+        return From(elements[0].childNode(0).toString(), TimeUtil.convert("$fromTime 00:00", formatter), null)
+    }
+
+    private fun toTo(elements: Elements): To {
+        val toTime = elements[2].childNode(2).toString()
+        return To(elements[2].childNode(0).toString(), TimeUtil.convert("$toTime 00:00", formatter))
+    }
+
+    private fun toProgresses(elements: Elements): List<Progresses> {
+        return elements.stream()
+            .filter { it != elements.first() }
+            .filter { checkTimeFormat(it) }
+            .map {
+                toProgress(elements = it.select("tr > td"))
+            }.toList()
+    }
+
+    private fun toProgress(elements: Elements): Progresses {
+        val time = "${elements[0].text()} ${elements[1].text()}"
+        return Progresses(
+            location = Location(elements[2].text()),
+            status = calculateStatus(elements[3].text()),
+            time = TimeUtil.convert(time, formatter),
+            description = elements[3].text()
+        )
+    }
+
+    private fun checkTimeFormat(element: Element): Boolean {
+        val data = element.select("tr > td")
+        return TimeUtil.checkTimeFormat("${data[0].text()} ${data[1].text()}", formatter)
     }
 
     private fun verifyWaybillNum(waybillNum: String) {
