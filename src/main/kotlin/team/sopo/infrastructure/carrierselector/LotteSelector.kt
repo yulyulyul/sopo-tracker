@@ -9,11 +9,18 @@ import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
+import java.time.format.DateTimeFormatter
+import kotlin.streams.toList
 
 @Component
 class LotteSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.LOTTE.code)
@@ -51,22 +58,25 @@ class LotteSelector : CarrierSelector() {
     private fun toParcel(document: Document, carrierCode: String): Parcel {
         val element = document.select("tbody > tr")
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
-        for (i in 0 until element.size) {
-            val elements = element[i].select("tr > td")
-            if (i == 0) {
-                parcel.from = From(elements[1].text())
-                parcel.to = To(elements[2].text())
-            } else {
-                parcel.progresses.add(
-                    Progresses(
-                        location = Location(elements[2].text()),
-                        status = calculateStatus(elements[0].text()),
-                        time = elements[1].text(),
-                        description = elements[3].text()
-                    )
+        val summary = element[0].select("tr > td")
+
+        parcel.from = From(summary[1].text())
+        parcel.to = To(summary[2].text())
+
+        val progresses = element.stream()
+            .filter { it != element.first() }
+            .filter { TimeUtil.checkTimeFormat(it.select("td")[1].text(), formatter) }
+            .map { detail ->
+                val data = detail.select("td")
+                Progresses(
+                    location = Location(data[2].text()),
+                    status = calculateStatus(data[0].text()),
+                    time = TimeUtil.convert(data[1].text(), formatter),
+                    description = data[3].text()
                 )
-            }
-        }
+            }.toList()
+        parcel.progresses.addAll(progresses)
+
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
         return parcel

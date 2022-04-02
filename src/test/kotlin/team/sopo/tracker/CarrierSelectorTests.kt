@@ -11,38 +11,40 @@ import team.sopo.infrastructure.carrierselector.kdexp.KdResponse
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
-class SopoTrackerApplicationTests {
+class CarrierSelectorTests {
 
     @Test
-    fun 경동() {
+    fun kdexp() {
         val document = Jsoup.connect("https://kdexp.com/newDeliverySearch.kd")
             .ignoreContentType(true)
             .data("barcode", "3207310921995")
             .get()
 
         val body = document.body().text()
-        val hdRes = Gson().fromJson(body, KdResponse::class.java)
+        val kdRes = Gson().fromJson(body, KdResponse::class.java)
+        println(kdRes)
     }
 
     @Test
-    fun 합동() {
+    fun hdexp() {
         val document = Jsoup.connect("https://hdexp.co.kr/deliverySearch2.hd")
             .ignoreContentType(true)
             .data("barcode", "3207220225160")
             .get()
         val body = document.body().text()
         val hdRes = Gson().fromJson(body, HdResponse::class.java)
+        println(hdRes)
     }
 
     @Test
-    fun 대신() {
+    fun daesin() {
         val document = Jsoup.connect("https://www.ds3211.co.kr/freight/internalFreightSearch.ht")
             .ignoreContentType(true)
             .data("billno", "8054101100865")
             .get()
         val elements = document.select("table > tbody")
         val summary = elements[0].select("tr > td")
-        var parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.daesin"))
+        val parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.daesin"))
 
         parcel.from = From(summary[0].data(), null, summary[1].data())
         parcel.to = To(summary[2].data())
@@ -77,6 +79,7 @@ class SopoTrackerApplicationTests {
         if (matcher.find()) {
             val response = matcher.group(1)
             val gsRes = Gson().fromJson(response, GsResponse::class.java)
+            println(gsRes)
         }
     }
 
@@ -92,6 +95,7 @@ class SopoTrackerApplicationTests {
         val progress = elements[2].select("tr")
         val parcel = Parcel(carrier = SupportCarrier.toCarrier("kr.cupost"))
         val targetStore = summary[7].text().trim()
+        println(targetStore)
 
         parcel.from = From(summary[4].text(), "${summary[2].text()} ${summary[3].text()}")
         parcel.to = To(summary[5].text())
@@ -107,7 +111,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 천일() {
+    fun chunlips() {
         val document = Jsoup.connect("http://www.chunil.co.kr/HTrace/HTrace.jsp")
             .ignoreContentType(true)
             .data("transNo", "12189760724")
@@ -138,7 +142,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 한진() {
+    fun hanjin() {
         val document =
             Jsoup.connect("http://www.hanjinexpress.hanjin.net/customer/hddcw18.tracking").ignoreContentType(true)
                 .data("w_num", "421732247403").get()
@@ -175,7 +179,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 로젠() {
+    fun logen() {
         val document =
             Jsoup.connect("https://www.ilogen.com/web/personal/trace/96633431683").ignoreContentType(true).get()
 
@@ -208,7 +212,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 우체국() {
+    fun epost() {
         val document =
             Jsoup.connect("https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm").ignoreContentType(true)
                 .data("sid1", "6077376185961").post()
@@ -237,7 +241,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 롯데() {
+    fun lotte() {
         val document =
             Jsoup.connect("https://www.lotteglogis.com/home/reservation/tracking/linkView").ignoreContentType(true)
                 .data("InvNo", "238595957611").post()
@@ -265,36 +269,7 @@ class SopoTrackerApplicationTests {
     }
 
     @Test
-    fun 롯데_없는_번호() {
-        val document =
-            Jsoup.connect("https://www.lotteglogis.com/home/reservation/tracking/linkView").ignoreContentType(true)
-                .data("InvNo", "").post()
-
-        val lotteProgress = document.select("tbody > tr")
-        val trackingInfo = Parcel(carrier = Carrier("kr.lotte", "롯데택배", "+8215882121"))
-        for (i in 0 until lotteProgress.size) {
-            val elements = lotteProgress[i].select("tr > td")
-            if (i == 0) {
-                trackingInfo.from = From(elements[1].text(), null, null)
-                trackingInfo.to = To(elements[2].text(), null)
-                trackingInfo.state = State("delivered", elements[3].text())
-            } else {
-                trackingInfo.progresses.add(
-                    Progresses(
-                        location = Location(elements[2].text()),
-                        status = Status(elements[0].text(), elements[0].text()),
-                        time = elements[1].text(),
-                        description = elements[3].text()
-                    )
-                )
-            }
-        }
-
-        println(trackingInfo)
-    }
-
-    @Test
-    fun 대한통운() {
+    fun cjlogistics() {
         val cjRes1 = Jsoup.connect("https://www.cjlogistics.com/ko/tool/parcel/tracking").execute()
         val doc = cjRes1.parse()
         val csrf =

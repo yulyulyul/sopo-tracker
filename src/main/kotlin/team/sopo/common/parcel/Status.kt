@@ -16,7 +16,7 @@ data class Status(
         }
 
         fun getInTransit(): Status{
-            return Status("in_transit","이동중")
+            return Status("in_transit","상품이동중")
         }
 
         fun getOutForDelivery(): Status{

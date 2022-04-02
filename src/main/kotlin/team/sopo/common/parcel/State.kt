@@ -16,7 +16,7 @@ class State(
         }
 
         fun getInTransit(): State {
-            return State("in_transit", "이동중")
+            return State("in_transit", "상품이동중")
         }
 
         fun getOutForDelivery(): State {
