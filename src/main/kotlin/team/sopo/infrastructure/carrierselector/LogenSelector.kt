@@ -3,19 +3,27 @@ package team.sopo.infrastructure.carrierselector
 import org.apache.commons.lang3.StringUtils
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
 import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
 @Component
 class LogenSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.LOGEN.code)
@@ -51,38 +59,43 @@ class LogenSelector : CarrierSelector() {
         val summary = document.select("table[class='horizon pdInfo'] tbody > tr")
         val progress = document.select("table[class='data tkInfo'] tbody > tr")
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(carrierCode))
-        val atPickUp = Progresses(status = Status.getAtPickUp())
 
         parcel.item = summary[0].select("td")[3].text()
         parcel.from = From(summary[3].select("td")[1].text(), null, null)
         parcel.to = To(summary[3].select("td")[3].text(), null)
 
-        atPickUp.time = summary[1].select("td")[1].text()
-        atPickUp.location = Location(summary[2].select("td")[1].text())
-        parcel.progresses.add(atPickUp)
-
-        val progresses = progress.stream().map { detail ->
-            val elements = detail.select("td")
-            Progresses(
-                time = elements[0].text(),
-                location = Location(elements[1].text()),
-                status = calculateStatus(elements[2].text()),
-                description = elements[3].text()
-            )
-        }.toList()
+        val progresses = progress.stream()
+            .filter { checkTimeFormat(it) }
+            .map { toProgress(elements = it.select("td")) }
+            .toList()
         parcel.progresses.addAll(progresses)
+
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
     }
 
-    private fun verifyWaybillNum(waybillNum: String){
+    private fun toProgress(elements: Elements): Progresses {
+        return Progresses(
+            time = TimeUtil.convert(elements[0].text(), formatter),
+            location = Location(elements[1].text()),
+            status = calculateStatus(elements[2].text()),
+            description = elements[3].text()
+        )
+    }
+
+    private fun checkTimeFormat(element: Element): Boolean {
+        val text = element.select("td")[0].text()
+        return TimeUtil.checkTimeFormat(text, formatter)
+    }
+
+    private fun verifyWaybillNum(waybillNum: String) {
         val num = waybillNum.replace("-", "")
         val pattern = Pattern.compile("^[0-9]*?")
 
         val isValidNum = num.length == 11 && pattern.matcher(num).matches()
-        if(!isValidNum){
+        if (!isValidNum) {
             throw ValidationException("송장번호의 유효성을 확인해주세요. - ($waybillNum)")
         }
     }
