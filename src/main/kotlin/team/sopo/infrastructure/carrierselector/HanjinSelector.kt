@@ -3,19 +3,26 @@ package team.sopo.infrastructure.carrierselector
 import org.apache.commons.lang3.StringUtils
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import org.springframework.stereotype.Component
 import team.sopo.common.SupportCarrier
 import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
 @Component
 class HanjinSelector : CarrierSelector() {
+
+    companion object {
+        private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.HANJINS.code)
@@ -60,20 +67,29 @@ class HanjinSelector : CarrierSelector() {
         parcel.from = From(elements[1].text())
         parcel.to = To(elements[2].text())
         parcel.progresses.addAll(
-            progresses.stream().map {
-                val detail = it.select("td")
-                Progresses(
-                    time = "${detail[0].text()} ${detail[1].text()}",
-                    location = Location(detail[2].text()),
-                    status = calculateStatus(detail[3].text()),
-                    description = detail[3].text()
-                )
-            }.toList()
+            progresses.stream()
+                .filter { checkTimeFormat(it) }
+                .map {
+                    val detail = it.select("td")
+                    val time = "${detail[0].text()} ${detail[1].text()}"
+                    Progresses(
+                        time = TimeUtil.convert(time, formatter),
+                        location = Location(detail[2].text()),
+                        status = calculateStatus(detail[3].text()),
+                        description = detail[3].text()
+                    )
+                }.toList()
         )
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
         return parcel
+    }
+
+    private fun checkTimeFormat(element: Element): Boolean {
+        val detail = element.select("td")
+        val time = "${detail[0].text()} ${detail[1].text()}"
+        return TimeUtil.checkTimeFormat(time, formatter)
     }
 
     private fun verifyWaybillNum(waybillNum: String) {
