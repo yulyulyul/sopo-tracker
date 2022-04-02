@@ -1,27 +1,25 @@
 package team.sopo.tracker
 
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import team.sopo.common.util.TimeUtil
 import java.time.format.DateTimeFormatter
 
 class CarrierTimeConvertTest {
     @Test
     fun lotteTime() {
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        val parse = ZonedDateTime.parse("2021-05-25 09:24:01", formatter.withZone(ZoneId.of("Asia/Seoul")))
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val time = "2021-05-25 09:24"
 
-        println(toStringTest(parse))
+        Assertions.assertTrue(TimeUtil.checkTimeFormat(time, formatter))
     }
 
-    private fun toStringTest(zonedDateTime: ZonedDateTime): String {
-        val dateTime = zonedDateTime.toLocalDateTime()
-        val offset = zonedDateTime.offset
-        return if (dateTime.second == 0) {
-            "${dateTime}:00"
-        } else {
-            dateTime.toString()
-        } + offset.toString()
+    @Test
+    fun kdexpTime() {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.s")
+        val time = "2022-02-23 14:31:00.0"
+
+        Assertions.assertTrue(TimeUtil.checkTimeFormat(time, formatter))
     }
 
 }

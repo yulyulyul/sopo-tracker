@@ -9,14 +9,21 @@ import team.sopo.common.exception.ParcelNotFoundException
 import team.sopo.common.exception.ValidationException
 import team.sopo.common.parcel.*
 import team.sopo.common.util.ParcelUtil
+import team.sopo.common.util.TimeUtil
 import team.sopo.domain.tracker.CarrierSelector
 import team.sopo.domain.tracker.TrackerCommand
 import team.sopo.infrastructure.carrierselector.kdexp.KdResponse
+import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 import kotlin.streams.toList
 
 @Component
 class KdexpSelector : CarrierSelector() {
+
+    companion object {
+        private val summaryFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        private val progressFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.s")
+    }
 
     override fun support(carrierCode: String): Boolean {
         return StringUtils.equals(carrierCode, SupportCarrier.KDEXP.code)
@@ -50,19 +57,22 @@ class KdexpSelector : CarrierSelector() {
     fun toParcel(kdRes: KdResponse): Parcel {
         var parcel = Parcel(carrier = SupportCarrier.toCarrier(SupportCarrier.KDEXP.code))
 
-        parcel.from = From(kdRes.info.send_name, kdRes.info.pd_dt, null)
-        parcel.to = To(kdRes.info.re_name, kdRes.info.rec_dt)
+        parcel.from = From(kdRes.info.send_name, TimeUtil.convert(kdRes.info.pd_dt, summaryFormatter), null)
+        parcel.to = To(kdRes.info.re_name, TimeUtil.convert(kdRes.info.rec_dt, summaryFormatter))
         parcel.item = kdRes.info.prod
 
-        val progresses = kdRes.items.stream().map { item ->
-            Progresses(
-                time = item.reg_date,
-                location = Location(item.location),
-                status = calculateStatus(item.stat),
-                description = item.stat
-            )
-        }.toList()
+        val progresses = kdRes.items.stream()
+            .filter { TimeUtil.checkTimeFormat(it.reg_date, progressFormatter) }
+            .map { item ->
+                Progresses(
+                    time = TimeUtil.convert(item.reg_date, progressFormatter),
+                    location = Location(item.location),
+                    status = calculateStatus(item.stat),
+                    description = item.stat
+                )
+            }.toList()
         parcel.progresses.addAll(progresses)
+
         parcel = ParcelUtil.sorting(parcel)
         parcel.state = ParcelUtil.determineState(parcel)
 
