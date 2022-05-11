@@ -1,23 +1,27 @@
 ### GS - GS_NETWORKS
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=210085936196&carrier=kr.cvsnet
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=210085936196&carrier=kr.cvsnet
 Content-Type: application/json
 
 ### GS - CJ
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=363637354055&carrier=kr.cvsnet
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=363637354055&carrier=kr.cvsnet
 Content-Type: application/json
 
-### Epost
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=6077376185961&carrier=kr.epost
+### Epost_1
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=6077376185961&carrier=kr.epost
+Content-Type: application/json
+
+### Epost_2
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=6101207106616&carrier=kr.epost
 Content-Type: application/json
 
 ### Cu
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=22032527193&carrier=kr.cupost
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=22032527193&carrier=kr.cupost
 Content-Type: application/json
 
 ### CJ
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=559197191721&carrier=kr.cjlogistics
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=559197191721&carrier=kr.cjlogistics
 Content-Type: application/json
 
 ### Chunlips
-GET http://localhost:8080/api/v1/sopo-tracker/tracking?waybillNum=12189760724&carrier=kr.chunilps
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=12189760724&carrier=kr.chunilps
 Content-Type: application/json

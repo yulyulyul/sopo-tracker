@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: tracker-service
+
+server:
+  port: 40180
+  shutdown: graceful

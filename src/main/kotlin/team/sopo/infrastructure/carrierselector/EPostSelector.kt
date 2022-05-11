@@ -74,13 +74,22 @@ class EpostSelector : CarrierSelector() {
     }
 
     private fun toFrom(elements: Elements): From {
-        val fromTime = elements[0].childNode(2).toString()
+
+        val fromTime = try {
+            elements[0].childNode(2).toString()
+        } catch (e: IndexOutOfBoundsException) {
+            ""
+        }
         return From(elements[0].childNode(0).toString(), TimeUtil.convert("$fromTime 00:00", formatter), null)
     }
 
     private fun toTo(elements: Elements): To {
-        val toTime = elements[2].childNode(2).toString()
-        return To(elements[2].childNode(0).toString(), TimeUtil.convert("$toTime 00:00", formatter))
+        val toTime = try {
+            elements[2].childNode(2).toString()
+        } catch (e: IndexOutOfBoundsException) {
+            ""
+        }
+        return To(elements[1].childNode(0).toString(), TimeUtil.convert("$toTime 00:00", formatter))
     }
 
     private fun toProgresses(elements: Elements): List<Progresses> {
