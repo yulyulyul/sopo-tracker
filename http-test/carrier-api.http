@@ -19,7 +19,7 @@ GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=22032527193&c
 Content-Type: application/json
 
 ### CJ
-GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=559197191721&carrier=kr.cjlogistics
+GET http://localhost:40180/api/v1/sopo-tracker/tracking?waybillNum=654840049631&carrier=kr.cjlogistics
 Content-Type: application/json
 
 ### Chunlips
